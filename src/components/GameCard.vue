@@ -6,17 +6,17 @@
       matched: card.matched && !isPreviewMode,
       hinted: isHinted,
       preview: isPreviewMode,
-      flipped: showFront,
+      previous: isPrevious
     }"
-    @click="handleClick"
+    @click.stop="handleClick"
   >
     <div class="card-inner" :class="{ 'is-flipped': !showFront }">
-      <div class="card-front" v-if="showFront">
+      <div class="card-front">
         <div class="card-content" :style="{ color: card.type.color }">
           {{ card.type.symbol }}
         </div>
       </div>
-      <div class="card-back" v-else>
+      <div class="card-back">
         <div class="card-back-content">?</div>
       </div>
     </div>
@@ -24,7 +24,7 @@
 </template>
 
 <script>
-import { computed } from "vue";
+import { computed, watch } from "vue";
 
 export default {
   name: "GameCard",
@@ -49,9 +49,9 @@ export default {
       type: Boolean,
       default: false,
     },
-    // 移除了未使用的previousCard prop
   },
   setup(props, { emit }) {
+    // 显示卡片正面的计算属性
     const showFront = computed(() => {
       // 当卡片被选中、是第二张临时卡片、提示中或已匹配时显示正面
       if (
@@ -72,15 +72,36 @@ export default {
       return false;
     });
 
-    // GameCard.vue 修复点击事件处理函数
-    const handleClick = () => {
-      console.log("processCardMatching ==> handleClick", props);
-      if (!props.isPreviewMode && !props.card.matched) {
-        console.log("processCardMatching ==> handleClick run", props);
-
-        emit("click");
+    // 处理点击事件 - 修复重复点击问题
+    const handleClick = (event) => {
+      // 添加事件终止，防止冒泡
+      event.preventDefault();
+      event.stopPropagation();
+      
+      // 检查游戏状态条件
+      if (props.isPreviewMode || props.card.matched) {
+        console.log("忽略点击: 预览模式或已匹配");
+        return;
       }
+      
+      // 记录点击发送给父组件
+      console.log(`Card clicked: (${props.card.rowIndex}, ${props.card.colIndex}), symbol: ${props.card.type.symbol}`);
+      emit("click");
     };
+
+    // 卡片状态变化监听
+    watch(() => props.isSelected, (newVal) => {
+      if (newVal) {
+        console.log(`卡片 (${props.card.rowIndex}, ${props.card.colIndex}) 被选中`);
+      }
+    });
+
+    watch(() => props.card.matched, (newVal) => {
+      if (newVal) {
+        console.log(`卡片 (${props.card.rowIndex}, ${props.card.colIndex}) 已匹配`);
+      }
+    });
+
     return {
       handleClick,
       showFront,
@@ -111,12 +132,13 @@ export default {
   width: 100%;
   height: 100%;
   position: relative;
-  transition: transform 0.6s;
+  transition: transform 0.4s, box-shadow 0.3s;
   transform-style: preserve-3d;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   border-radius: 8px;
 }
 
+/* 修复翻转样式，确保正反面显示逻辑正确 */
 .card-inner.is-flipped {
   transform: rotateY(180deg);
 }
@@ -131,16 +153,19 @@ export default {
   display: flex;
   justify-content: center;
   align-items: center;
+  /* 确保3D转换正确 */
+  transition: all 0.3s ease;
 }
 
 .card-front {
   background-color: #f8f8f8;
   border: 1px solid #e0e0e0;
+  transform: rotateY(0deg); /* 确保正面朝前 */
 }
 
 .card-back {
   background-color: #2c3e50;
-  transform: rotateY(180deg);
+  transform: rotateY(180deg); /* 确保背面朝后 */
   border: 1px solid #1c2e40;
 }
 
@@ -151,30 +176,41 @@ export default {
 }
 
 .card-content {
-  font-size: 1.5rem; /* 使用相对单位 */
+  font-size: 1.5rem;
   font-weight: bold;
-  /* 确保文字不溢出 */
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
+/* 选中状态 */
 .game-card.selected .card-inner {
   box-shadow: 0 0 0 3px #42b983, 0 2px 4px rgba(0, 0, 0, 0.1);
   transform: scale(1.05);
   z-index: 10;
 }
 
-.game-card.matched {
-  visibility: hidden;
-  opacity: 0;
-  transform: scale(0.8);
+/* 第二张选中的卡片 */
+.game-card.previous .card-inner {
+  box-shadow: 0 0 0 3px #42b983, 0 2px 4px rgba(0, 0, 0, 0.1);
+  transform: scale(1.05);
+  z-index: 10;
 }
 
+/* 匹配状态 - 改为透明而非隐藏，确保位置保持但视觉上消失 */
+.game-card.matched {
+  opacity: 0;
+  transition: opacity 0.5s ease-out;
+  pointer-events: none; /* 防止点击已匹配的卡片 */
+}
+
+/* 提示状态 */
 .game-card.hinted .card-inner {
   animation: pulse 1s infinite;
+  box-shadow: 0 0 15px rgba(66, 185, 131, 0.8);
 }
 
+/* 预览状态 */
 .game-card.preview .card-inner {
   box-shadow: 0 0 10px rgba(233, 168, 38, 0.8);
   animation: previewPulse 2s infinite;

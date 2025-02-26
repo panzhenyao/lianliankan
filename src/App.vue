@@ -14,7 +14,7 @@
       :previousCard="previousCard"
       :connectingPath="connectingPath"
       :isPreviewMode="gameState === 'preview'"
-      @card-click="handleCardClick"
+      @card-click="debouncedHandleCardClick"
     />
     <GameControls
       @new-game="startNewGame"
@@ -23,11 +23,26 @@
       :gameState="gameState"
       :hintsRemaining="hintsRemaining"
     />
+
+    <!-- 调试信息 -->
+    <div v-if="isDebugMode" class="debug-info">
+      <p>游戏状态: {{ gameState }}</p>
+      <p>正在处理匹配: {{ isProcessingMatch }}</p>
+      <p>
+        已选卡片:
+        {{
+          selectedCard
+            ? `(${selectedCard.rowIndex},${selectedCard.colIndex})`
+            : "无"
+        }}
+      </p>
+      <p>连接路径: {{ connectingPath.length }}</p>
+    </div>
   </div>
 </template>
 
 <script>
-import { ref, computed, onMounted, onUnmounted, nextTick } from "vue";
+import { ref, computed, onMounted, onUnmounted, nextTick, watch } from "vue";
 import GameBoard from "./components/GameBoard.vue";
 import GameStatus from "./components/GameStatus.vue";
 import GameControls from "./components/GameControls.vue";
@@ -42,6 +57,9 @@ export default {
     GameControls,
   },
   setup() {
+    // 调试模式
+    const isDebugMode = ref(true);
+
     // 游戏配置
     const rows = 8;
     const cols = 8;
@@ -58,7 +76,7 @@ export default {
     const timeLeft = ref(gameDuration);
     const previewCountdown = ref(previewDuration);
     const hintsRemaining = ref(maxHints);
-    // 新增：标记是否正在处理卡片匹配的状态
+    // 标记是否正在处理卡片匹配的状态
     const isProcessingMatch = ref(false);
     // 计时器
     const timer = ref(null);
@@ -93,6 +111,14 @@ export default {
       gameState.value = "ready";
       hintsRemaining.value = maxHints;
       previewCountdown.value = previewDuration;
+      isProcessingMatch.value = false; // 确保重置处理状态
+
+      console.log(
+        "游戏初始化完成，棋盘大小:",
+        board.value.length,
+        "x",
+        board.value[0].length
+      );
     };
 
     const clearTimers = () => {
@@ -106,11 +132,29 @@ export default {
       }
     };
 
+    // 添加事件防抖函数
+    const debounce = (fn, delay) => {
+      let timer = null;
+      return function (...args) {
+        if (timer) clearTimeout(timer);
+        timer = setTimeout(() => {
+          fn.apply(this, args);
+        }, delay);
+      };
+    };
+
+    // 为handleCardClick添加防抖保护
+    const debouncedHandleCardClick = debounce((card) => {
+      handleCardClick(card);
+    }, 300);
+
     const startNewGame = () => {
+      console.log("开始新游戏");
       initGame();
 
       // 开始预览模式
       gameState.value = "preview";
+      console.log("进入预览模式, 倒计时:", previewCountdown.value);
 
       previewTimer.value = setInterval(() => {
         if (previewCountdown.value > 0) {
@@ -121,6 +165,7 @@ export default {
 
           // 预览结束，切换到游戏模式
           gameState.value = "playing";
+          console.log("预览结束，开始游戏");
 
           // 确保视图更新后再启动计时器
           nextTick(() => {
@@ -139,12 +184,18 @@ export default {
         } else {
           clearInterval(timer.value);
           gameState.value = "lost";
+          console.log("时间到，游戏结束");
         }
       }, 1000);
     };
 
     const shuffleCards = () => {
       if (gameState.value !== "playing") return;
+
+      // 防止在处理匹配时洗牌
+      if (isProcessingMatch.value) return;
+
+      console.log("洗牌开始");
 
       // 收集未匹配的卡片
       let unmatched = [];
@@ -180,9 +231,11 @@ export default {
 
       board.value = newBoard;
       resetSelection();
+      console.log("洗牌完成");
     };
 
     const resetSelection = () => {
+      console.log("重置选择状态");
       selectedCard.value = null;
       previousCard.value = null;
 
@@ -196,8 +249,16 @@ export default {
     const showHint = () => {
       if (gameState.value !== "playing" || hintsRemaining.value <= 0) return;
 
+      // 防止在处理匹配时使用提示
+      if (isProcessingMatch.value) return;
+
+      console.log("显示提示");
+      // 标记正在处理
+      isProcessingMatch.value = true;
+
       // 查找可连接的卡片对
       const matchablePairs = findMatchablePairs();
+      console.log("找到可匹配的对数:", matchablePairs.length);
 
       if (matchablePairs.length > 0) {
         // 随机选择一对
@@ -206,12 +267,18 @@ export default {
         const card1 = board.value[pair.card1.row][pair.card1.col];
         const card2 = board.value[pair.card2.row][pair.card2.col];
 
-        // 显示连接路径
-        connectingPath.value = pair.path;
+        console.log(
+          "提示匹配:",
+          `(${card1.rowIndex},${card1.colIndex})`,
+          `(${card2.rowIndex},${card2.colIndex})`
+        );
 
         // 高亮显示卡片
         card1.hinted = true;
         card2.hinted = true;
+
+        // 显示连接路径
+        connectingPath.value = pair.path;
 
         // 延迟后自动匹配
         setTimeout(() => {
@@ -219,17 +286,29 @@ export default {
           card1.matched = true;
           card2.matched = true;
 
-          // 清除高亮和路径
+          // 清除高亮
           card1.hinted = false;
           card2.hinted = false;
-          connectingPath.value = [];
 
-          // 减少提示次数
-          hintsRemaining.value--;
+          // 延迟后清除路径
+          setTimeout(() => {
+            // 清除连接路径
+            connectingPath.value = [];
 
-          // 检查游戏是否胜利
-          checkWinCondition();
-        }, 1000);
+            // 重置处理状态
+            isProcessingMatch.value = false;
+
+            // 减少提示次数
+            hintsRemaining.value--;
+
+            // 检查游戏是否胜利
+            checkWinCondition();
+          }, 600);
+        }, 1200);
+      } else {
+        console.log("没有找到可匹配的卡片对");
+        // 无可匹配的卡片，重置处理状态
+        isProcessingMatch.value = false;
       }
     };
 
@@ -276,19 +355,34 @@ export default {
       return pairs;
     };
 
+    // 仅修改handleCardClick函数，解决点击事件问题
+
     const handleCardClick = (card) => {
+      console.log(
+        `卡片点击处理: (${card.rowIndex}, ${card.colIndex}), 状态: ${gameState.value}`
+      );
+
       // 检查基本游戏状态
-      if (gameState.value !== "playing" || card.matched) {
+      if (gameState.value !== "playing") {
+        console.log("游戏未进行，忽略点击");
+        return;
+      }
+
+      // 忽略已匹配的卡片
+      if (card.matched) {
+        console.log("卡片已匹配，忽略点击");
         return;
       }
 
       // 如果当前正在处理匹配，忽略点击
       if (isProcessingMatch.value) {
+        console.log("正在处理匹配，忽略点击");
         return;
       }
 
       // 如果没有选择卡片，记录第一次选择
       if (selectedCard.value === null) {
+        console.log(`选择第一张卡片: (${card.rowIndex}, ${card.colIndex})`);
         selectedCard.value = card;
         return;
       }
@@ -298,14 +392,18 @@ export default {
         selectedCard.value.rowIndex === card.rowIndex &&
         selectedCard.value.colIndex === card.colIndex
       ) {
+        console.log("点击同一张卡片，取消选择");
         selectedCard.value = null;
         return;
       }
 
-      // 保存第一张卡片的引用，然后立即清空选择状态
+      // 保存第一张卡片的引用，然后尝试匹配
       const firstCard = selectedCard.value;
+      console.log(
+        `尝试匹配: (${firstCard.rowIndex},${firstCard.colIndex}) 和 (${card.rowIndex},${card.colIndex})`
+      );
 
-      // 标记正在处理匹配
+      // 标记正在处理匹配 - 防止重复点击
       isProcessingMatch.value = true;
 
       // 尝试连接
@@ -313,65 +411,119 @@ export default {
     };
 
     const processCardMatching = (card1, card2) => {
-      // 高亮显示这两张卡片（可选）
+      // 高亮显示这两张卡片
       selectedCard.value = card1;
       previousCard.value = card2;
 
       // 检查是否可以连接
       if (card1.type.symbol === card2.type.symbol) {
+        console.log("卡片类型匹配，检查是否可连接");
         // 使用canConnect函数检查是否可以连接
         if (canConnect(board.value, card1, card2)) {
           // 找到连接路径
           const path = findPath(board.value, card1, card2);
 
           if (path && path.length > 0) {
+            console.log("找到连接路径，长度:", path.length);
             // 确保路径有效再赋值
             connectingPath.value = path;
-            console.log("找到连接路径:", connectingPath.value);
 
             // 显示连接并延迟匹配
             setTimeout(() => {
+              console.log("设置卡片为已匹配状态");
               // 设置为已匹配
               board.value[card1.rowIndex][card1.colIndex].matched = true;
               board.value[card2.rowIndex][card2.colIndex].matched = true;
 
               // 延长连线显示时间
               setTimeout(() => {
+                console.log("清除连接路径和重置选择状态");
+                // 清除连接路径
+                connectingPath.value = [];
+
                 // 重置状态
                 resetSelection();
 
                 // 检查游戏是否结束
                 checkWinCondition();
-              }, 500); // 保持连线显示500ms（缩短了时间）
-            }, 200); // 缩短等待时间
+              }, 600); // 保持连线显示600ms
+            }, 400); // 等待400ms后匹配
             return;
+          } else {
+            console.log("未找到有效连接路径");
           }
+        } else {
+          console.log("卡片无法连接");
         }
+      } else {
+        console.log("卡片类型不匹配");
       }
 
       // 如果执行到这里，说明匹配失败
-      console.log("匹配失败");
+      console.log("匹配失败，重置状态");
+
       // 不能连接或类型不匹配，显示短暂的失败视觉反馈后重置
       setTimeout(() => {
         resetSelection();
-      }, 500); // 缩短等待时间
+      }, 800);
     };
 
     const checkWinCondition = () => {
       if (remainingPairs.value === 0) {
+        console.log("恭喜！游戏胜利");
         gameState.value = "won";
         clearInterval(timer.value);
       }
     };
 
+    // 添加监听器确保路径绘制正确
+    watch(
+      () => connectingPath.value,
+      (newPath) => {
+        if (newPath.length > 0) {
+          console.log("App监测到路径变化:", newPath);
+        }
+      },
+      { deep: true }
+    );
+
     // 生命周期钩子
     onMounted(() => {
+      console.log("App组件挂载完成");
       initGame();
+
+      // 添加键盘快捷键
+      window.addEventListener("keydown", handleKeyDown);
     });
 
     onUnmounted(() => {
       clearTimers();
+      window.removeEventListener("keydown", handleKeyDown);
     });
+
+    // 键盘快捷键处理
+    const handleKeyDown = (event) => {
+      // 按D键切换调试模式
+      if (event.key.toLowerCase() === "d") {
+        isDebugMode.value = !isDebugMode.value;
+        console.log("调试模式:", isDebugMode.value ? "开启" : "关闭");
+      }
+
+      // 按N键开始新游戏
+      if (event.key.toLowerCase() === "n") {
+        startNewGame();
+      }
+
+      // 按S键洗牌
+      if (event.key.toLowerCase() === "s" && gameState.value === "playing") {
+        shuffleCards();
+      }
+
+      // 按H键提示
+      if (event.key.toLowerCase() === "h" && gameState.value === "playing") {
+        showHint();
+      }
+    };
 
     return {
       // 游戏状态
@@ -384,9 +536,11 @@ export default {
       gameState,
       previewCountdown,
       hintsRemaining,
-      isProcessingMatch, // 添加新的状态变量
-
+      isProcessingMatch,
+      isDebugMode,
       // 游戏操作
+      
+      debouncedHandleCardClick,
       startNewGame,
       shuffleCards,
       showHint,
@@ -414,6 +568,25 @@ h1 {
   color: #2c3e50;
   margin-bottom: 20px;
   font-size: min(2rem, 8vw);
+}
+
+/* 调试信息面板 */
+.debug-info {
+  position: fixed;
+  bottom: 10px;
+  left: 10px;
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 10px;
+  border-radius: 5px;
+  font-size: 12px;
+  text-align: left;
+  z-index: 1000;
+  max-width: 300px;
+}
+
+.debug-info p {
+  margin: 5px 0;
 }
 
 /* 响应式调整 */
