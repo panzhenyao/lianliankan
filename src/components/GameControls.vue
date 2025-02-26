@@ -1,24 +1,25 @@
 <template>
     <div class="game-controls">
-      <button 
+      <button
         class="control-button new-game"
         @click="$emit('new-game')"
+        :disabled="isLoading"
       >
-        新游戏
+        {{ gameState === "playing" ? "重新开始" : "新游戏" }}
       </button>
-      
-      <button 
+  
+      <button
         class="control-button shuffle"
         @click="$emit('shuffle')"
-        :disabled="gameState !== 'playing'"
+        :disabled="gameState !== 'playing' || isLoading"
       >
         洗牌
       </button>
-      
-      <button 
+  
+      <button
         class="control-button hint"
         @click="$emit('hint')"
-        :disabled="gameState !== 'playing' || hintsRemaining <= 0"
+        :disabled="gameState !== 'playing' || hintsRemaining <= 0 || isLoading"
       >
         提示 ({{ hintsRemaining }})
       </button>
@@ -26,8 +27,10 @@
   </template>
   
   <script>
+  import { ref, watch } from 'vue';
+  
   export default {
-    name: 'GameControls',
+    name: "GameControls",
     props: {
       gameState: {
         type: String,
@@ -38,7 +41,20 @@
         default: 3
       }
     },
-    emits: ['new-game', 'shuffle', 'hint']
+    emits: ["new-game", "shuffle", "hint"],
+    setup(props) {
+      // 按钮加载状态，防止连续点击
+      const isLoading = ref(false);
+      
+      // 当游戏状态改变时，重置加载状态
+      watch(() => props.gameState, () => {
+        isLoading.value = false;
+      });
+      
+      return {
+        isLoading
+      };
+    }
   };
   </script>
   
@@ -48,7 +64,7 @@
     justify-content: center;
     gap: 20px;
     margin-top: 20px;
-    flex-wrap: wrap; /* Allow buttons to wrap on small screens */
+    flex-wrap: wrap;
     padding: 0 10px 10px;
   }
   
@@ -60,11 +76,42 @@
     cursor: pointer;
     transition: all 0.2s ease;
     min-width: 100px;
+    position: relative;
+    overflow: hidden;
   }
   
   .control-button:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+  }
+  
+  .control-button::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 5px;
+    height: 5px;
+    background: rgba(255, 255, 255, 0.5);
+    opacity: 0;
+    border-radius: 100%;
+    transform: scale(1, 1) translate(-50%);
+    transform-origin: 50% 50%;
+  }
+  
+  .control-button:not(:disabled):active::after {
+    animation: ripple 0.4s ease-out;
+  }
+  
+  @keyframes ripple {
+    0% {
+      transform: scale(0, 0);
+      opacity: 0.5;
+    }
+    100% {
+      transform: scale(20, 20);
+      opacity: 0;
+    }
   }
   
   .new-game {
@@ -94,7 +141,7 @@
     background-color: #e5b90c;
   }
   
-  /* Responsive styling */
+  /* 响应式样式 */
   @media (max-width: 480px) {
     .game-controls {
       gap: 10px;

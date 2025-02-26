@@ -1,4 +1,3 @@
-<!-- Updates to GameStatus.vue template -->
 <template>
     <div class="game-status">
       <div class="status-item">
@@ -20,21 +19,23 @@
         </div>
       </div>
   
-      <!-- Preview countdown display -->
-      <div 
-        class="preview-overlay" 
-        v-if="gameState === 'preview'"
-      >
-        <div class="preview-message">记忆卡片位置</div>
-        <div class="preview-countdown">{{ previewCountdown }}</div>
-      </div>
+      <!-- 游戏状态消息 -->
+      <transition name="fade">
+        <div
+          class="status-message"
+          v-if="gameState !== 'playing' && gameState !== 'ready' && gameState !== 'preview'"
+        >
+          {{ statusMessage }}
+        </div>
+      </transition>
   
-      <div
-        class="status-message"
-        v-if="gameState !== 'playing' && gameState !== 'ready' && gameState !== 'preview'"
-      >
-        {{ statusMessage }}
-      </div>
+      <!-- 预览倒计时 -->
+      <transition name="fade">
+        <div class="preview-overlay" v-if="gameState === 'preview'">
+          <div class="preview-message">记忆卡片位置</div>
+          <div class="preview-countdown">{{ previewCountdown }}</div>
+        </div>
+      </transition>
     </div>
   </template>
   
@@ -66,27 +67,23 @@
       },
     },
     setup(props) {
-      // 格式化时间
+      // 格式化时间 (MM:SS)
       const formatTime = (seconds) => {
         const mins = Math.floor(seconds / 60);
         const secs = seconds % 60;
         return `${mins}:${secs < 10 ? "0" : ""}${secs}`;
       };
   
-      // 根据游戏状态显示消息
+      // 根据游戏状态显示的消息
       const statusMessage = computed(() => {
-        switch (props.gameState) {
-          case "won":
-            return "恭喜你赢了！";
-          case "lost":
-            return "时间到，游戏结束！";
-          case "paused":
-            return "游戏已暂停";
-          case "preview":
-            return "记忆卡片位置";
-          default:
-            return "";
-        }
+        const messages = {
+          won: "恭喜你赢了！",
+          lost: "时间到，游戏结束！",
+          paused: "游戏已暂停",
+          preview: "记忆卡片位置",
+        };
+        
+        return messages[props.gameState] || "";
       });
   
       return {
@@ -139,9 +136,10 @@
     color: #42b983;
     margin-top: 40px;
     text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
+    z-index: 10;
   }
   
-  /* Preview mode styling */
+  /* 预览模式样式 */
   .preview-overlay {
     position: fixed;
     top: 0;
@@ -155,6 +153,7 @@
     justify-content: center;
     align-items: center;
     color: white;
+    user-select: none;
   }
   
   .preview-message {
@@ -168,7 +167,18 @@
     font-weight: bold;
   }
   
-  /* Responsive styling */
+  /* 过渡动画 */
+  .fade-enter-active,
+  .fade-leave-active {
+    transition: opacity 0.5s;
+  }
+  
+  .fade-enter-from,
+  .fade-leave-to {
+    opacity: 0;
+  }
+  
+  /* 响应式样式 */
   @media (max-width: 768px) {
     .status-item {
       padding: 8px;
