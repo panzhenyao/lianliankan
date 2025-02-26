@@ -1,4 +1,3 @@
-
 // 检查两个卡片是否可以连接
 export function canConnect(board, card1, card2) {
     // 如果卡片类型不同，则不能连接
@@ -44,6 +43,14 @@ export function canConnect(board, card1, card2) {
     return []; // 无法连接
   }
   
+  // 检查是否是两张卡片本身
+  function isOneOfCards(row, col, card1, card2) {
+    return (
+      (row === card1.rowIndex && col === card1.colIndex) ||
+      (row === card2.rowIndex && col === card2.colIndex)
+    );
+  }
+  
   // 检查两点是否可以直线连接
   function checkDirectLine(board, card1, card2) {
     const path = [];
@@ -56,7 +63,8 @@ export function canConnect(board, card1, card2) {
       
       // 检查两点之间是否有障碍物
       for (let col = startCol + 1; col < endCol; col++) {
-        if (!board[row][col].matched) {
+        // 修改：如果中间有未匹配的卡片且不是两张卡片本身，则视为障碍物
+        if (!board[row][col].matched && !isOneOfCards(row, col, card1, card2)) {
           return []; // 有障碍物，无法直线连接
         }
       }
@@ -74,7 +82,8 @@ export function canConnect(board, card1, card2) {
       
       // 检查两点之间是否有障碍物
       for (let row = startRow + 1; row < endRow; row++) {
-        if (!board[row][col].matched) {
+        // 修改：如果中间有未匹配的卡片且不是两张卡片本身，则视为障碍物
+        if (!board[row][col].matched && !isOneOfCards(row, col, card1, card2)) {
           return []; // 有障碍物，无法直线连接
         }
       }
@@ -95,11 +104,15 @@ export function canConnect(board, card1, card2) {
     // 尝试找到一个拐角点
     const cornerPoint = { row: card1.rowIndex, col: card2.colIndex };
     
-    // 检查拐角点是否为空或已匹配
-    if (cornerPoint.row >= 0 && cornerPoint.row < rows && 
-        cornerPoint.col >= 0 && cornerPoint.col < cols && 
-        board[cornerPoint.row][cornerPoint.col].matched) {
-      
+    // 修改：拐角点必须是已匹配的卡片或者是两张卡片之一
+    if (
+      cornerPoint.row >= 0 && 
+      cornerPoint.row < rows && 
+      cornerPoint.col >= 0 && 
+      cornerPoint.col < cols && 
+      (board[cornerPoint.row][cornerPoint.col].matched || 
+       isOneOfCards(cornerPoint.row, cornerPoint.col, card1, card2))
+    ) {
       // 检查card1到拐角点的直线路径
       const path1 = checkDirectLine(board, card1, board[cornerPoint.row][cornerPoint.col]);
       
@@ -118,11 +131,15 @@ export function canConnect(board, card1, card2) {
     // 尝试另一个拐角点
     const anotherCornerPoint = { row: card2.rowIndex, col: card1.colIndex };
     
-    // 检查拐角点是否为空或已匹配
-    if (anotherCornerPoint.row >= 0 && anotherCornerPoint.row < rows && 
-        anotherCornerPoint.col >= 0 && anotherCornerPoint.col < cols && 
-        board[anotherCornerPoint.row][anotherCornerPoint.col].matched) {
-      
+    // 修改：拐角点必须是已匹配的卡片或者是两张卡片之一
+    if (
+      anotherCornerPoint.row >= 0 && 
+      anotherCornerPoint.row < rows && 
+      anotherCornerPoint.col >= 0 && 
+      anotherCornerPoint.col < cols && 
+      (board[anotherCornerPoint.row][anotherCornerPoint.col].matched || 
+       isOneOfCards(anotherCornerPoint.row, anotherCornerPoint.col, card1, card2))
+    ) {
       // 检查card1到拐角点的直线路径
       const path1 = checkDirectLine(board, card1, board[anotherCornerPoint.row][anotherCornerPoint.col]);
       
@@ -154,9 +171,11 @@ export function canConnect(board, card1, card2) {
       const corner1 = { row: card1.rowIndex, col: col };
       const corner2 = { row: card2.rowIndex, col: col };
       
-      // 检查两个拐角点是否都为空或已匹配
-      if (board[corner1.row][corner1.col].matched && board[corner2.row][corner2.col].matched) {
-        
+      // 修改：拐角点必须是已匹配的卡片或者是两张卡片之一
+      if (
+        (board[corner1.row][corner1.col].matched || isOneOfCards(corner1.row, corner1.col, card1, card2)) && 
+        (board[corner2.row][corner2.col].matched || isOneOfCards(corner2.row, corner2.col, card1, card2))
+      ) {
         // 检查card1到corner1的直线路径
         const path1 = checkDirectLine(board, card1, board[corner1.row][corner1.col]);
         
@@ -185,9 +204,11 @@ export function canConnect(board, card1, card2) {
       const corner1 = { row: row, col: card1.colIndex };
       const corner2 = { row: row, col: card2.colIndex };
       
-      // 检查两个拐角点是否都为空或已匹配
-      if (board[corner1.row][corner1.col].matched && board[corner2.row][corner2.col].matched) {
-        
+      // 修改：拐角点必须是已匹配的卡片或者是两张卡片之一
+      if (
+        (board[corner1.row][corner1.col].matched || isOneOfCards(corner1.row, corner1.col, card1, card2)) && 
+        (board[corner2.row][corner2.col].matched || isOneOfCards(corner2.row, corner2.col, card1, card2))
+      ) {
         // 检查card1到corner1的直线路径
         const path1 = checkDirectLine(board, card1, board[corner1.row][corner1.col]);
         
