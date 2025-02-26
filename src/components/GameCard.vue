@@ -33,7 +33,7 @@
         type: Boolean,
         default: false
       },
-      isPreviewMode: {  // Add this new prop
+      isPreviewMode: {
         type: Boolean,
         default: false
       }
@@ -66,6 +66,9 @@
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     position: relative;
     user-select: none;
+    max-width: 60px; /* 限制最大宽度 */
+    max-height: 60px; /* 限制最大高度 */
+    margin: 0 auto; /* 居中 */
   }
   
   .game-card.selected {
@@ -101,8 +104,12 @@
   }
   
   .card-content {
-    font-size: 24px;
+    font-size: 1.5rem; /* 使用相对单位 */
     font-weight: bold;
+    /* 确保文字不溢出 */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   
   @keyframes pulse {
@@ -126,6 +133,29 @@
     }
     100% {
       box-shadow: 0 0 5px rgba(233, 168, 38, 0.5);
+    }
+  }
+  
+  /* 响应式调整 */
+  @media (max-width: 768px) {
+    .game-card {
+      max-width: 50px;
+      max-height: 50px;
+    }
+    
+    .card-content {
+      font-size: 1.2rem;
+    }
+  }
+  
+  @media (max-width: 480px) {
+    .game-card {
+      max-width: 40px;
+      max-height: 40px;
+    }
+    
+    .card-content {
+      font-size: 1rem;
     }
   }
   </style>

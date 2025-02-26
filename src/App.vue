@@ -284,10 +284,48 @@ export default {
   padding: 20px;
   font-family: Arial, sans-serif;
   text-align: center;
+  box-sizing: border-box;
+  overflow-x: hidden; /* 防止水平滚动条 */
+  height: 100%;
 }
 
 h1 {
   color: #2c3e50;
   margin-bottom: 20px;
+  font-size: 2rem;
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+  .app-container {
+    padding: 15px;
+  }
+  
+  h1 {
+    font-size: 1.8rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .app-container {
+    padding: 10px;
+  }
+  
+  h1 {
+    font-size: 1.5rem;
+    margin-bottom: 15px;
+  }
+}
+
+/* 添加到HTML和BODY, 可以放到main.js中引入的全局CSS中 */
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow-x: hidden;
+}
+
+#app {
+  height: 100%;
 }
 </style>
