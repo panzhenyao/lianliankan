@@ -13,6 +13,13 @@
         </div>
       </div>
   
+      <div class="status-item">
+        <div class="label">提示</div>
+        <div class="value" :class="{ warning: hintsRemaining === 0 }">
+          {{ hintsRemaining }}
+        </div>
+      </div>
+  
       <!-- Preview countdown display -->
       <div 
         class="preview-overlay" 
@@ -49,9 +56,13 @@
         type: String,
         required: true,
       },
-      previewCountdown: {  // Add this new prop
+      previewCountdown: {
         type: Number,
         default: 0,
+      },
+      hintsRemaining: {
+        type: Number,
+        default: 3,
       },
     },
     setup(props) {
@@ -99,7 +110,8 @@
     padding: 10px;
     background-color: #f8f8f8;
     border-radius: 8px;
-    min-width: 100px;
+    min-width: 80px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   }
   
   .label {
@@ -154,5 +166,52 @@
   .preview-countdown {
     font-size: 72px;
     font-weight: bold;
+  }
+  
+  /* Responsive styling */
+  @media (max-width: 768px) {
+    .status-item {
+      padding: 8px;
+      min-width: 70px;
+    }
+    
+    .label {
+      font-size: 12px;
+    }
+    
+    .value {
+      font-size: 16px;
+    }
+    
+    .preview-message {
+      font-size: 24px;
+    }
+    
+    .preview-countdown {
+      font-size: 60px;
+    }
+  }
+  
+  @media (max-width: 480px) {
+    .status-item {
+      padding: 5px;
+      min-width: 60px;
+    }
+    
+    .label {
+      font-size: 11px;
+    }
+    
+    .value {
+      font-size: 14px;
+    }
+    
+    .preview-message {
+      font-size: 20px;
+    }
+    
+    .preview-countdown {
+      font-size: 48px;
+    }
   }
   </style>

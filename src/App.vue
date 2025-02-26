@@ -6,6 +6,7 @@
       :timeLeft="timeLeft" 
       :gameState="gameState"
       :previewCountdown="previewCountdown"
+      :hintsRemaining="hintsRemaining"
     />
     <GameBoard 
       :board="board" 
@@ -19,6 +20,7 @@
       @shuffle="shuffleCards"
       @hint="showHint"
       :gameState="gameState"
+      :hintsRemaining="hintsRemaining"
     />
   </div>
 </template>
@@ -54,6 +56,9 @@ export default {
     const previewDuration = ref(3); // 3 second preview
     const previewCountdown = ref(3); // Countdown display for preview
     
+    // Add hints limit
+    const hintsRemaining = ref(3);
+    
     // 计算剩余配对数
     const remainingPairs = computed(() => {
       if (!board.value.length) return 0;
@@ -78,6 +83,7 @@ export default {
       gameState.value = 'ready';
       isPreviewMode.value = false;
       previewCountdown.value = previewDuration.value;
+      hintsRemaining.value = 3; // Reset hints
     };
     
     // 开始新游戏
@@ -158,11 +164,13 @@ export default {
       connectingPath.value = [];
     };
     
-    // 提示功能
+    // 提示功能 - 修改为自动匹配一对卡片
     const showHint = () => {
-      if (gameState.value !== 'playing') return;
+      if (gameState.value !== 'playing' || hintsRemaining.value <= 0) return;
       
       // 寻找可以连接的卡片对
+      let foundPairs = [];
+      
       for (let i = 0; i < rows; i++) {
         for (let j = 0; j < cols; j++) {
           if (board.value[i][j].matched) continue;
@@ -179,26 +187,52 @@ export default {
               if (board.value[i][j].type.symbol === board.value[m][n].type.symbol) {
                 const path = findPath(board.value, board.value[i][j], board.value[m][n]);
                 if (path.length > 0) {
-                  // 显示提示
-                  board.value[i][j].hinted = true;
-                  board.value[m][n].hinted = true;
-                  
-                  // 3秒后取消提示
-                  setTimeout(() => {
-                    if (board.value[i][j] && !board.value[i][j].matched) {
-                      board.value[i][j].hinted = false;
-                    }
-                    if (board.value[m][n] && !board.value[m][n].matched) {
-                      board.value[m][n].hinted = false;
-                    }
-                  }, 3000);
-                  
-                  return; // 找到一对即可
+                  foundPairs.push({
+                    card1: {row: i, col: j},
+                    card2: {row: m, col: n},
+                    path: path
+                  });
                 }
               }
             }
           }
         }
+      }
+      
+      // 如果找到可匹配的对子
+      if (foundPairs.length > 0) {
+        // 随机选择一对
+        const randomPair = foundPairs[Math.floor(Math.random() * foundPairs.length)];
+        const card1 = board.value[randomPair.card1.row][randomPair.card1.col];
+        const card2 = board.value[randomPair.card2.row][randomPair.card2.col];
+        
+        // 显示连接路径
+        connectingPath.value = randomPair.path;
+        
+        // 先高亮显示选中的卡片
+        card1.hinted = true;
+        card2.hinted = true;
+        
+        // 延迟后自动匹配
+        setTimeout(() => {
+          // 标记卡片为已匹配
+          board.value[randomPair.card1.row][randomPair.card1.col].matched = true;
+          board.value[randomPair.card2.row][randomPair.card2.col].matched = true;
+          
+          // 清除高亮和路径
+          card1.hinted = false;
+          card2.hinted = false;
+          connectingPath.value = [];
+          
+          // 减少可用提示次数
+          hintsRemaining.value--;
+          
+          // 检查游戏是否胜利
+          if (remainingPairs.value === 0) {
+            gameState.value = 'won';
+            clearInterval(timer.value);
+          }
+        }, 1000);
       }
     };
     
@@ -268,6 +302,7 @@ export default {
       gameState,
       isPreviewMode,
       previewCountdown,
+      hintsRemaining,
       startNewGame,
       shuffleCards,
       showHint,
@@ -279,20 +314,22 @@ export default {
 
 <style>
 .app-container {
-  max-width: 800px;
+  max-width: 100%;
   margin: 0 auto;
   padding: 20px;
   font-family: Arial, sans-serif;
   text-align: center;
   box-sizing: border-box;
   overflow-x: hidden; /* 防止水平滚动条 */
-  height: 100%;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 
 h1 {
   color: #2c3e50;
   margin-bottom: 20px;
-  font-size: 2rem;
+  font-size: min(2rem, 8vw);
 }
 
 /* 响应式调整 */
@@ -302,7 +339,7 @@ h1 {
   }
   
   h1 {
-    font-size: 1.8rem;
+    font-size: min(1.8rem, 7vw);
   }
 }
 
@@ -312,7 +349,7 @@ h1 {
   }
   
   h1 {
-    font-size: 1.5rem;
+    font-size: min(1.5rem, 6vw);
     margin-bottom: 15px;
   }
 }

@@ -18,9 +18,9 @@
       <button 
         class="control-button hint"
         @click="$emit('hint')"
-        :disabled="gameState !== 'playing'"
+        :disabled="gameState !== 'playing' || hintsRemaining <= 0"
       >
-        提示
+        提示 ({{ hintsRemaining }})
       </button>
     </div>
   </template>
@@ -32,6 +32,10 @@
       gameState: {
         type: String,
         required: true
+      },
+      hintsRemaining: {
+        type: Number,
+        default: 3
       }
     },
     emits: ['new-game', 'shuffle', 'hint']
@@ -44,6 +48,8 @@
     justify-content: center;
     gap: 20px;
     margin-top: 20px;
+    flex-wrap: wrap; /* Allow buttons to wrap on small screens */
+    padding: 0 10px 10px;
   }
   
   .control-button {
@@ -86,5 +92,18 @@
   
   .hint:hover:not(:disabled) {
     background-color: #e5b90c;
+  }
+  
+  /* Responsive styling */
+  @media (max-width: 480px) {
+    .game-controls {
+      gap: 10px;
+    }
+    
+    .control-button {
+      padding: 8px 15px;
+      min-width: 80px;
+      font-size: 14px;
+    }
   }
   </style>
