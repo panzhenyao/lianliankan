@@ -68,10 +68,10 @@ export default {
       return false;
     });
 
-    // In GameCard.vue, modify the handleClick function to be more robust
+    // GameCard.vue 修复点击事件处理函数
     const handleClick = () => {
-      // Only allow clicks when not in preview mode and card is not matched
-      if (!props.isPreviewMode && !props.card.matched) {
+      // 确保只在卡片未匹配时才触发点击事件
+      if (!props.card.matched) {
         emit("click");
       }
     };
