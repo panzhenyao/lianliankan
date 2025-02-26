@@ -11,6 +11,7 @@
     <GameBoard
       :board="board"
       :selectedCard="selectedCard"
+      :previousCard="previousCard"
       :connectingPath="connectingPath"
       :isPreviewMode="isPreviewMode"
       @card-click="handleCardClick"
@@ -46,7 +47,9 @@ export default {
     const board = ref([]);
     const selectedCard = ref(null);
     const connectingPath = ref([]);
+    // 在 setup() 函数内，与其他状态变量一起声明
     const timer = ref(null);
+    const previewTimer = ref(null); // 添加这一行，使其成为响应式状态
     const timeLeft = ref(180); // 3分钟
     const rows = 8;
     const cols = 8;
@@ -58,6 +61,9 @@ export default {
 
     // Add hints limit
     const hintsRemaining = ref(3);
+
+    // 添加到setup()函数中的状态变量部分
+    const previousCard = ref(null); // 用于记录第二次点击的卡片
 
     // 计算剩余配对数
     const remainingPairs = computed(() => {
@@ -85,30 +91,55 @@ export default {
       previewCountdown.value = previewDuration.value;
       hintsRemaining.value = 3; // Reset hints
     };
-
-    // 修复 App.vue 中的倒计时结束和游戏状态切换逻辑
+    // 然后修改 startNewGame 函数
     const startNewGame = () => {
+      // 清除所有可能运行的定时器
+      if (timer.value) {
+        clearInterval(timer.value);
+      }
+      if (previewTimer.value) {
+        clearInterval(previewTimer.value);
+      }
+
+      // 初始化游戏板
       initGame();
+
+      // 确保状态重置
+      selectedCard.value = null;
+      connectingPath.value = [];
+
+      console.log("开始新游戏，进入预览模式");
 
       // 开始预览模式
       isPreviewMode.value = true;
       gameState.value = "preview";
       previewCountdown.value = previewDuration.value;
 
-      // 创建预览倒计时
-      const previewTimer = setInterval(() => {
+      // 创建新的预览定时器，并保存引用
+      previewTimer.value = setInterval(() => {
         if (previewCountdown.value > 0) {
           previewCountdown.value--;
+          console.log("预览倒计时:", previewCountdown.value);
         } else {
-          clearInterval(previewTimer);
+          clearInterval(previewTimer.value);
+          previewTimer.value = null;
+          console.log("预览模式结束，切换到playing状态");
+
+          // 预览结束，切换到游戏模式
           isPreviewMode.value = false;
           gameState.value = "playing";
-          startTimer(); // 预览结束后开始游戏计时器
 
-          // 强制立即更新状态
+          // 强制渲染更新
           nextTick(() => {
-            console.log("游戏状态已切换到:", gameState.value);
-            console.log("预览模式:", isPreviewMode.value);
+            console.log(
+              "状态已更新:",
+              "游戏状态=",
+              gameState.value,
+              "预览模式=",
+              isPreviewMode.value
+            );
+            // 开始游戏计时器
+            startTimer();
           });
         }
       }, 1000);
@@ -254,30 +285,20 @@ export default {
       }
     };
 
-    // 修复 handleCardClick 函数，简化条件判断
     const handleCardClick = (card) => {
-      console.log(
-        "卡片点击:",
-        card,
-        "游戏状态:",
-        gameState.value,
-        "预览模式:",
-        isPreviewMode.value
-      );
-
-      // 先检查游戏状态
-      if (gameState.value !== "playing") {
-        console.log("游戏不在playing状态，点击无效");
+      // 检查游戏状态
+      if (
+        gameState.value !== "playing" ||
+        isPreviewMode.value ||
+        card.matched
+      ) {
         return;
       }
 
-      // 再检查预览模式和卡片匹配状态
-      if (isPreviewMode.value || card.matched) {
-        console.log("卡片不可点击：预览模式或已匹配");
+      // 如果已经有临时卡片在显示中，忽略新的点击
+      if (previousCard.value) {
         return;
       }
-
-      console.log("卡片点击有效，进行处理");
 
       // 第一次选择卡片
       if (selectedCard.value === null) {
@@ -294,27 +315,42 @@ export default {
         return;
       }
 
+      // 记录第二张卡片
+      previousCard.value = card;
+
       // 尝试连接两张卡片
-      if (canConnect(board.value, selectedCard.value, card)) {
-        // 其余逻辑保持不变...
+      if (
+        selectedCard.value.type.symbol === card.type.symbol &&
+        canConnect(board.value, selectedCard.value, card)
+      ) {
+        // 找到连接路径
         connectingPath.value = findPath(board.value, selectedCard.value, card);
 
+        // 显示连接并设置为已匹配
         setTimeout(() => {
           board.value[selectedCard.value.rowIndex][
             selectedCard.value.colIndex
           ].matched = true;
           board.value[card.rowIndex][card.colIndex].matched = true;
 
+          // 重置状态
           selectedCard.value = null;
+          previousCard.value = null;
           connectingPath.value = [];
 
+          // 检查游戏是否结束
           if (remainingPairs.value === 0) {
             gameState.value = "won";
             clearInterval(timer.value);
           }
         }, 500);
       } else {
-        selectedCard.value = card;
+        // 不匹配或不能连接，延时后翻转回去
+        setTimeout(() => {
+          // 重置选择状态，卡片会自动翻回背面
+          selectedCard.value = null;
+          previousCard.value = null;
+        }, 1000); // 给玩家1秒钟时间查看卡片
       }
     };
 
@@ -327,6 +363,9 @@ export default {
     onUnmounted(() => {
       if (timer.value) {
         clearInterval(timer.value);
+      }
+      if (previewTimer.value) {
+        clearInterval(previewTimer.value);
       }
     });
 

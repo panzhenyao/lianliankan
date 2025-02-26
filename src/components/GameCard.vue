@@ -45,37 +45,42 @@ export default {
       type: Boolean,
       default: false,
     },
+    previousCard: {
+      type: Object,
+      default: null,
+    },
+    isPrevious: {
+      type: Boolean,
+      default: false,
+    },
   },
   setup(props, { emit }) {
-    // In GameCard.vue, modify the showFront computed property
     const showFront = computed(() => {
-      // During preview mode, cards should be face-up (front)
+      // 当卡片被选中、是第二张临时卡片、提示中或已匹配时显示正面
+      if (
+        props.isSelected ||
+        props.isPrevious ||
+        props.isHinted ||
+        props.card.matched
+      ) {
+        return true;
+      }
+
+      // 预览模式下显示正面
       if (props.isPreviewMode) {
         return true;
       }
 
-      // Show front if card is selected or hinted
-      if (props.isSelected || props.isHinted) {
-        return true;
-      }
-
-      // Show front if card is matched
-      if (props.card.matched) {
-        return true;
-      }
-
-      // Otherwise, keep the card face-down
+      // 其他情况显示背面
       return false;
     });
 
     // GameCard.vue 修复点击事件处理函数
     const handleClick = () => {
-      // 确保只在卡片未匹配时才触发点击事件
-      if (!props.card.matched) {
+      if (!props.isPreviewMode && !props.card.matched) {
         emit("click");
       }
     };
-
     return {
       handleClick,
       showFront,
