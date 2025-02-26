@@ -1,4 +1,4 @@
-<!-- 方法1: 使用嵌套元素 -->
+<!-- Update GameBoard.vue -->
 <template>
     <div class="game-board">
       <div 
@@ -15,6 +15,7 @@
             :card="card"
             :isSelected="isCardSelected(card)"
             :isHinted="card.hinted"
+            :isPreviewMode="isPreviewMode"
             @click="$emit('card-click', card)"
           />
         </div>
@@ -57,6 +58,10 @@
       connectingPath: {
         type: Array,
         default: () => []
+      },
+      isPreviewMode: {  // Add this new prop
+        type: Boolean,
+        default: false
       }
     },
     setup(props) {
@@ -94,6 +99,7 @@
   </script>
   
   <style scoped>
+  /* No changes needed to the styles */
   .game-board {
     position: relative;
     margin: 20px auto;

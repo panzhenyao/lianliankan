@@ -4,12 +4,14 @@
     <GameStatus 
       :remainingPairs="remainingPairs" 
       :timeLeft="timeLeft" 
-      :gameState="gameState" 
+      :gameState="gameState"
+      :previewCountdown="previewCountdown"
     />
     <GameBoard 
       :board="board" 
       :selectedCard="selectedCard"
       :connectingPath="connectingPath"
+      :isPreviewMode="isPreviewMode"
       @card-click="handleCardClick" 
     />
     <GameControls 
@@ -38,7 +40,7 @@ export default {
   },
   setup() {
     // 游戏状态
-    const gameState = ref('ready'); // ready, playing, paused, won, lost
+    const gameState = ref('ready'); // ready, preview, playing, paused, won, lost
     const board = ref([]);
     const selectedCard = ref(null);
     const connectingPath = ref([]);
@@ -46,6 +48,11 @@ export default {
     const timeLeft = ref(180); // 3分钟
     const rows = 8;
     const cols = 8;
+    
+    // Add preview mode state
+    const isPreviewMode = ref(false);
+    const previewDuration = ref(3); // 3 second preview
+    const previewCountdown = ref(3); // Countdown display for preview
     
     // 计算剩余配对数
     const remainingPairs = computed(() => {
@@ -69,13 +76,29 @@ export default {
       connectingPath.value = [];
       timeLeft.value = 180;
       gameState.value = 'ready';
+      isPreviewMode.value = false;
+      previewCountdown.value = previewDuration.value;
     };
     
     // 开始新游戏
     const startNewGame = () => {
       initGame();
-      startTimer();
-      gameState.value = 'playing';
+      
+      // Start with preview mode
+      isPreviewMode.value = true;
+      gameState.value = 'preview';
+      
+      // Create preview countdown timer
+      const previewTimer = setInterval(() => {
+        if (previewCountdown.value > 0) {
+          previewCountdown.value--;
+        } else {
+          clearInterval(previewTimer);
+          isPreviewMode.value = false;
+          gameState.value = 'playing';
+          startTimer(); // Start the actual game timer after preview
+        }
+      }, 1000);
     };
     
     // 开始计时器
@@ -181,13 +204,8 @@ export default {
     
     // 处理卡片点击
     const handleCardClick = (card) => {
-      if (gameState.value !== 'playing' || card.matched) return;
-      
-      // 确保游戏已经开始
-      if (gameState.value === 'ready') {
-        startTimer();
-        gameState.value = 'playing';
-      }
+      // Don't allow clicks during preview mode
+      if (isPreviewMode.value || gameState.value === 'ready' || gameState.value !== 'playing' || card.matched) return;
       
       // 第一次选择卡片
       if (selectedCard.value === null) {
@@ -248,6 +266,8 @@ export default {
       timeLeft,
       remainingPairs,
       gameState,
+      isPreviewMode,
+      previewCountdown,
       startNewGame,
       shuffleCards,
       showHint,

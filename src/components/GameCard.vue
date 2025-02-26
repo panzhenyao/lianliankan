@@ -3,12 +3,13 @@
       class="game-card" 
       :class="{ 
         'selected': isSelected, 
-        'matched': card.matched,
-        'hinted': isHinted
+        'matched': card.matched && !isPreviewMode,
+        'hinted': isHinted,
+        'preview': isPreviewMode
       }"
       @click="handleClick"
     >
-      <div class="card-inner" v-if="!card.matched">
+      <div class="card-inner" v-if="!card.matched || isPreviewMode">
         <div class="card-content" :style="{ color: card.type.color }">
           {{ card.type.symbol }}
         </div>
@@ -31,11 +32,15 @@
       isHinted: {
         type: Boolean,
         default: false
+      },
+      isPreviewMode: {  // Add this new prop
+        type: Boolean,
+        default: false
       }
     },
     setup(props, { emit }) {
       const handleClick = () => {
-        if (!props.card.matched) {
+        if (!props.card.matched && !props.isPreviewMode) {
           emit('click');
         }
       };
@@ -79,6 +84,11 @@
     animation: pulse 1s infinite;
   }
   
+  .game-card.preview {
+    box-shadow: 0 0 10px rgba(233, 168, 38, 0.8);
+    animation: previewPulse 2s infinite;
+  }
+  
   .card-inner {
     width: 90%;
     height: 90%;
@@ -104,6 +114,18 @@
     }
     100% {
       box-shadow: 0 0 0 0 rgba(66, 185, 131, 0);
+    }
+  }
+  
+  @keyframes previewPulse {
+    0% {
+      box-shadow: 0 0 5px rgba(233, 168, 38, 0.5);
+    }
+    50% {
+      box-shadow: 0 0 15px rgba(233, 168, 38, 0.8);
+    }
+    100% {
+      box-shadow: 0 0 5px rgba(233, 168, 38, 0.5);
     }
   }
   </style>
