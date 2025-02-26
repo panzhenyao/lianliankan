@@ -58,7 +58,8 @@ export default {
     const timeLeft = ref(gameDuration);
     const previewCountdown = ref(previewDuration);
     const hintsRemaining = ref(maxHints);
-    
+    // 新增：标记是否正在处理卡片匹配的状态
+    const isProcessingMatch = ref(false);
     // 计时器
     const timer = ref(null);
     const previewTimer = ref(null);
@@ -66,7 +67,7 @@ export default {
     // 计算剩余配对数
     const remainingPairs = computed(() => {
       if (!board.value.length) return 0;
-      
+
       let count = 0;
       for (let row of board.value) {
         for (let card of row) {
@@ -82,7 +83,7 @@ export default {
     const initGame = () => {
       // 清除计时器
       clearTimers();
-      
+
       // 重置游戏状态
       board.value = createGameCards(rows, cols);
       selectedCard.value = null;
@@ -107,20 +108,20 @@ export default {
 
     const startNewGame = () => {
       initGame();
-      
+
       // 开始预览模式
       gameState.value = "preview";
-      
+
       previewTimer.value = setInterval(() => {
         if (previewCountdown.value > 0) {
           previewCountdown.value--;
         } else {
           clearInterval(previewTimer.value);
           previewTimer.value = null;
-          
+
           // 预览结束，切换到游戏模式
           gameState.value = "playing";
-          
+
           // 确保视图更新后再启动计时器
           nextTick(() => {
             startTimer();
@@ -131,7 +132,7 @@ export default {
 
     const startTimer = () => {
       if (timer.value) clearInterval(timer.value);
-      
+
       timer.value = setInterval(() => {
         if (timeLeft.value > 0) {
           timeLeft.value--;
@@ -184,9 +185,12 @@ export default {
     const resetSelection = () => {
       selectedCard.value = null;
       previousCard.value = null;
-      
+
       // 清除连接路径
       connectingPath.value = [];
+
+      // 重置正在处理匹配的标志
+      isProcessingMatch.value = false;
     };
 
     const showHint = () => {
@@ -194,34 +198,35 @@ export default {
 
       // 查找可连接的卡片对
       const matchablePairs = findMatchablePairs();
-      
+
       if (matchablePairs.length > 0) {
         // 随机选择一对
-        const pair = matchablePairs[Math.floor(Math.random() * matchablePairs.length)];
+        const pair =
+          matchablePairs[Math.floor(Math.random() * matchablePairs.length)];
         const card1 = board.value[pair.card1.row][pair.card1.col];
         const card2 = board.value[pair.card2.row][pair.card2.col];
-        
+
         // 显示连接路径
         connectingPath.value = pair.path;
-        
+
         // 高亮显示卡片
         card1.hinted = true;
         card2.hinted = true;
-        
+
         // 延迟后自动匹配
         setTimeout(() => {
           // 匹配卡片
           card1.matched = true;
           card2.matched = true;
-          
+
           // 清除高亮和路径
           card1.hinted = false;
           card2.hinted = false;
           connectingPath.value = [];
-          
+
           // 减少提示次数
           hintsRemaining.value--;
-          
+
           // 检查游戏是否胜利
           checkWinCondition();
         }, 1000);
@@ -230,22 +235,30 @@ export default {
 
     const findMatchablePairs = () => {
       let pairs = [];
-      
+
       // 遍历所有未匹配的卡片
       for (let i = 0; i < rows; i++) {
         for (let j = 0; j < cols; j++) {
           if (board.value[i][j].matched) continue;
-          
+
           // 寻找可能匹配的另一张卡片
           for (let m = 0; m < rows; m++) {
             for (let n = 0; n < cols; n++) {
               // 跳过同一张卡片和已匹配的卡片
               if ((i === m && j === n) || board.value[m][n].matched) continue;
-              
+
               // 检查类型是否相同且可以连接
-              if (board.value[i][j].type.symbol === board.value[m][n].type.symbol) {
-                if (canConnect(board.value, board.value[i][j], board.value[m][n])) {
-                  const path = findPath(board.value, board.value[i][j], board.value[m][n]);
+              if (
+                board.value[i][j].type.symbol === board.value[m][n].type.symbol
+              ) {
+                if (
+                  canConnect(board.value, board.value[i][j], board.value[m][n])
+                ) {
+                  const path = findPath(
+                    board.value,
+                    board.value[i][j],
+                    board.value[m][n]
+                  );
                   if (path.length > 0) {
                     pairs.push({
                       card1: { row: i, col: j },
@@ -259,83 +272,89 @@ export default {
           }
         }
       }
-      
+
       return pairs;
     };
 
     const handleCardClick = (card) => {
-      console.log('handleCardClick ==>1 ');
-      // 检查游戏状态
-      if (gameState.value !== "playing" || card.matched || previousCard.value) {
+      // 检查基本游戏状态
+      if (gameState.value !== "playing" || card.matched) {
         return;
       }
-      console.log('handleCardClick ==>2 ');
+
+      // 如果当前正在处理匹配，忽略点击
+      if (isProcessingMatch.value) {
+        return;
+      }
 
       // 如果没有选择卡片，记录第一次选择
       if (selectedCard.value === null) {
         selectedCard.value = card;
         return;
       }
-      console.log('handleCardClick ==>3 ');
 
       // 点击同一张卡片，取消选择
-      if (selectedCard.value.rowIndex === card.rowIndex && 
-          selectedCard.value.colIndex === card.colIndex) {
+      if (
+        selectedCard.value.rowIndex === card.rowIndex &&
+        selectedCard.value.colIndex === card.colIndex
+      ) {
         selectedCard.value = null;
         return;
       }
-      console.log('handleCardClick ==>4 ');
 
-      // 记录第二张卡片
-      previousCard.value = card;
+      // 保存第一张卡片的引用，然后立即清空选择状态
+      const firstCard = selectedCard.value;
+
+      // 标记正在处理匹配
+      isProcessingMatch.value = true;
 
       // 尝试连接
-      processCardMatching(selectedCard.value, card);
+      processCardMatching(firstCard, card);
     };
 
     const processCardMatching = (card1, card2) => {
+      // 高亮显示这两张卡片（可选）
+      selectedCard.value = card1;
+      previousCard.value = card2;
+
       // 检查是否可以连接
       if (card1.type.symbol === card2.type.symbol) {
         // 使用canConnect函数检查是否可以连接
         if (canConnect(board.value, card1, card2)) {
           // 找到连接路径
           const path = findPath(board.value, card1, card2);
-          
+
           if (path && path.length > 0) {
             // 确保路径有效再赋值
             connectingPath.value = path;
             console.log("找到连接路径:", connectingPath.value);
-            
+
             // 显示连接并延迟匹配
             setTimeout(() => {
               // 设置为已匹配
               board.value[card1.rowIndex][card1.colIndex].matched = true;
               board.value[card2.rowIndex][card2.colIndex].matched = true;
-              
+
               // 延长连线显示时间
               setTimeout(() => {
                 // 重置状态
                 resetSelection();
-                
+
                 // 检查游戏是否结束
                 checkWinCondition();
-              }, 800); // 保持连线显示800ms
-            }, 300);
-          } else {
-            console.log("无法找到有效连接路径");
-            // 不能连接，延时后重置
-            setTimeout(resetSelection, 1000);
+              }, 500); // 保持连线显示500ms（缩短了时间）
+            }, 200); // 缩短等待时间
+            return;
           }
-        } else {
-          console.log("卡片无法连接");
-          // 不能连接，延时后重置
-          setTimeout(resetSelection, 1000);
         }
-      } else {
-        console.log("卡片类型不匹配");
-        // 类型不匹配，延时后重置
-        setTimeout(resetSelection, 1000);
       }
+
+      // 如果执行到这里，说明匹配失败
+      console.log("匹配失败");
+      // 不能连接或类型不匹配，显示短暂的失败视觉反馈后重置
+      setTimeout(() => {
+        resetSelection();
+      }, 500); // 缩短等待时间
     };
 
     const checkWinCondition = () => {
@@ -365,7 +384,8 @@ export default {
       gameState,
       previewCountdown,
       hintsRemaining,
-      
+      isProcessingMatch, // 添加新的状态变量
+
       // 游戏操作
       startNewGame,
       shuffleCards,
