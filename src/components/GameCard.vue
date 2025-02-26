@@ -6,7 +6,7 @@
       matched: card.matched && !isPreviewMode,
       hinted: isHinted,
       preview: isPreviewMode,
-      previous: isPrevious
+      previous: isPrevious,
     }"
     @click.stop="handleClick"
   >
@@ -51,56 +51,48 @@ export default {
     },
   },
   setup(props, { emit }) {
-    // 显示卡片正面的计算属性
-    const showFront = computed(() => {
-      // 当卡片被选中、是第二张临时卡片、提示中或已匹配时显示正面
-      if (
+    // 优化2: 简化showFront计算属性
+    const showFront = computed(
+      () =>
         props.isSelected ||
         props.isPrevious ||
         props.isHinted ||
-        props.card.matched
-      ) {
-        return true;
-      }
+        props.card.matched ||
+        props.isPreviewMode
+    );
 
-      // 预览模式下显示正面
-      if (props.isPreviewMode) {
-        return true;
-      }
-
-      // 其他情况显示背面
-      return false;
-    });
-
-    // 处理点击事件 - 修复重复点击问题
+    // 优化3: 简化handleClick函数
     const handleClick = (event) => {
-      // 添加事件终止，防止冒泡
       event.preventDefault();
       event.stopPropagation();
-      
-      // 检查游戏状态条件
-      if (props.isPreviewMode || props.card.matched) {
-        console.log("忽略点击: 预览模式或已匹配");
-        return;
+
+      if (!props.isPreviewMode && !props.card.matched) {
+        emit("click");
       }
-      
-      // 记录点击发送给父组件
-      console.log(`Card clicked: (${props.card.rowIndex}, ${props.card.colIndex}), symbol: ${props.card.type.symbol}`);
-      emit("click");
     };
 
     // 卡片状态变化监听
-    watch(() => props.isSelected, (newVal) => {
-      if (newVal) {
-        console.log(`卡片 (${props.card.rowIndex}, ${props.card.colIndex}) 被选中`);
+    watch(
+      () => props.isSelected,
+      (newVal) => {
+        if (newVal) {
+          console.log(
+            `卡片 (${props.card.rowIndex}, ${props.card.colIndex}) 被选中`
+          );
+        }
       }
-    });
+    );
 
-    watch(() => props.card.matched, (newVal) => {
-      if (newVal) {
-        console.log(`卡片 (${props.card.rowIndex}, ${props.card.colIndex}) 已匹配`);
+    watch(
+      () => props.card.matched,
+      (newVal) => {
+        if (newVal) {
+          console.log(
+            `卡片 (${props.card.rowIndex}, ${props.card.colIndex}) 已匹配`
+          );
+        }
       }
-    });
+    );
 
     return {
       handleClick,

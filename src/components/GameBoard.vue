@@ -20,7 +20,10 @@
         </div>
 
         <!-- 连接线 -->
-        <svg class="connecting-lines" v-if="connectingPath && connectingPath.length > 0">
+        <svg
+          class="connecting-lines"
+          v-if="connectingPath && connectingPath.length > 0"
+        >
           <polyline
             :points="pathPoints"
             stroke="#ff9500"
@@ -73,7 +76,7 @@ export default {
   setup(props) {
     // 添加boardGrid引用，用于准确测量
     const boardGrid = ref(null);
-    
+
     // 计算棋盘网格样式
     const boardGridStyle = computed(() => {
       if (!props.board || props.board.length === 0) {
@@ -113,48 +116,41 @@ export default {
     const cellWidth = ref(0);
     const cellHeight = ref(0);
 
-    // 计算连接线路径点
+    // 修改 pathPoints 计算属性，移除副作用
     const pathPoints = computed(() => {
       if (!props.connectingPath || props.connectingPath.length === 0) {
         return "";
       }
 
-      // 获取棋盘元素
       const boardElement = boardGrid.value;
       if (!boardElement || !props.board.length || !props.board[0]?.length) {
         return "";
       }
 
-      // 获取真实尺寸
       const rect = boardElement.getBoundingClientRect();
-      const boardWidth = rect.width;
-      const boardHeight = rect.height;
       const rowCount = props.board.length;
       const colCount = props.board[0].length;
-      
-      // 计算单个卡片尺寸
-      cellWidth.value = boardWidth / colCount;
-      cellHeight.value = boardHeight / rowCount;
-      
-      // 生成路径点坐标，确保所有点都有效
+
+      // 在这里只计算临时变量，不修改组件状态
+      const tempCellWidth = rect.width / colCount;
+      const tempCellHeight = rect.height / rowCount;
+
       return props.connectingPath
         .map((point) => {
-          // 确保point对象包含有效的row和col属性
-          if (typeof point.row !== 'number' || typeof point.col !== 'number') {
-            console.error('Invalid path point:', point);
-            return '';
+          if (typeof point.row !== "number" || typeof point.col !== "number") {
+            return "";
           }
-          
-          // 计算卡片中心点坐标
-          const x = point.col * cellWidth.value + cellWidth.value / 2;
-          const y = point.row * cellHeight.value + cellHeight.value / 2;
+
+          // 使用临时变量而不是修改 cellWidth.value 和 cellHeight.value
+          const x = point.col * tempCellWidth + tempCellWidth / 2;
+          const y = point.row * tempCellHeight + tempCellHeight / 2;
           return `${x},${y}`;
         })
-        .filter(coord => coord !== '')  // 过滤掉无效坐标
+        .filter((coord) => coord !== "")
         .join(" ");
     });
 
-    // 测量实际卡片大小的函数
+    // 修改 measureBoardSize 函数，在这里更新 cellWidth 和 cellHeight
     const measureBoardSize = () => {
       nextTick(() => {
         const boardElement = boardGrid.value;
@@ -166,16 +162,11 @@ export default {
         const rowCount = props.board.length;
         const colCount = props.board[0].length;
 
+        // 在这个函数中更新状态是可以的
         cellWidth.value = rect.width / colCount;
         cellHeight.value = rect.height / rowCount;
-        
-        // 强制更新路径点
-        pathPointsUpdate.value = Date.now();
       });
     };
-    
-    // 用于强制更新路径点计算的状态
-    const pathPointsUpdate = ref(0);
 
     // 在组件挂载和更新时测量卡片大小
     onMounted(() => {
@@ -189,17 +180,17 @@ export default {
 
     // 当棋盘变化时重新测量
     watch(() => props.board, measureBoardSize, { deep: true });
-    
-    // 监听连接路径的变化
-    watch(() => props.connectingPath, (newPath) => {
-      if (newPath && newPath.length > 0) {
-        console.log("连接路径变化:", newPath);
-        // 确保DOM更新完成后再计算路径点
-        nextTick(() => {
-          measureBoardSize();
-        });
-      }
-    }, { deep: true });
+
+    // 优化3: 简化监听器
+    watch(
+      () => props.connectingPath,
+      (newPath) => {
+        if (newPath && newPath.length > 0) {
+          nextTick(measureBoardSize);
+        }
+      },
+      { deep: true }
+    );
 
     return {
       boardGrid,
@@ -207,7 +198,6 @@ export default {
       isCardSelected,
       isCardPrevious,
       pathPoints,
-      pathPointsUpdate,
     };
   },
 };
@@ -273,8 +263,15 @@ export default {
 }
 
 @keyframes glow {
-  0%, 100% { stroke: #ff9500; stroke-width: 3px; }
-  50% { stroke: #ffcc00; stroke-width: 5px; }
+  0%,
+  100% {
+    stroke: #ff9500;
+    stroke-width: 3px;
+  }
+  50% {
+    stroke: #ffcc00;
+    stroke-width: 5px;
+  }
 }
 
 /* 响应式样式 */
